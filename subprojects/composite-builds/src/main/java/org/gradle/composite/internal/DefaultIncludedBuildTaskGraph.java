@@ -19,6 +19,7 @@ import org.gradle.api.artifacts.component.BuildIdentifier;
 import org.gradle.api.internal.TaskInternal;
 import org.gradle.api.internal.project.ProjectStateRegistry;
 import org.gradle.internal.build.BuildStateRegistry;
+import org.gradle.internal.build.ExecutionResult;
 import org.gradle.internal.concurrent.CompositeStoppable;
 import org.gradle.internal.concurrent.ExecutorFactory;
 import org.gradle.internal.concurrent.ManagedExecutor;
@@ -131,23 +132,23 @@ public class DefaultIncludedBuildTaskGraph implements IncludedBuildTaskGraph, Cl
     }
 
     @Override
-    public void awaitTaskCompletion(Consumer<? super Throwable> taskFailures) {
-        withState(() -> {
+    public ExecutionResult<Void> awaitTaskCompletion() {
+        return withState(() -> {
             expectInState(State.Running);
             try {
-                includedBuilds.awaitTaskCompletion(taskFailures);
+                return includedBuilds.awaitTaskCompletion();
             } finally {
                 state = State.Finished;
             }
-            return null;
         });
     }
 
     @Override
-    public void runScheduledTasks(Consumer<? super Throwable> taskFailures) {
+    public void runScheduledTasks() {
         populateTaskGraphs();
         startTaskExecution();
-        awaitTaskCompletion(taskFailures);
+        ExecutionResult<Void> result = awaitTaskCompletion();
+        result.rethrow();
     }
 
     @Override
@@ -157,13 +158,13 @@ public class DefaultIncludedBuildTaskGraph implements IncludedBuildTaskGraph, Cl
 
     private void expectQueuingTasks() {
         if (state != State.QueuingTasks && state != State.ReadyToRun) {
-            throw new IllegalStateException("Work graph is in unexpected state: " + state);
+            throw new IllegalStateException("Work graph is in an unexpected state: " + state);
         }
     }
 
     private void expectInState(State expectedState) {
         if (state != expectedState) {
-            throw new IllegalStateException("Work graph is in unexpected state: " + state);
+            throw new IllegalStateException("Work graph is in an unexpected state: " + state);
         }
     }
 

@@ -20,7 +20,6 @@ import org.gradle.BuildResult;
 import org.gradle.api.internal.GradleInternal;
 import org.gradle.api.internal.SettingsInternal;
 import org.gradle.execution.BuildWorkExecutor;
-import org.gradle.execution.MultipleBuildFailures;
 import org.gradle.execution.taskgraph.TaskExecutionGraphInternal;
 import org.gradle.initialization.BuildCompletionListener;
 import org.gradle.initialization.exception.ExceptionAnalyser;
@@ -29,8 +28,6 @@ import org.gradle.internal.concurrent.CompositeStoppable;
 import org.gradle.internal.service.scopes.BuildScopeServices;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -121,17 +118,12 @@ public class DefaultBuildLifecycleController implements BuildLifecycleController
     }
 
     @Override
-    public void executeTasks() {
-        withModel(() -> {
+    public ExecutionResult<Void> executeTasks() {
+        return withModel(() -> {
             if (state != State.TaskGraph) {
                 throw new IllegalStateException("Cannot execute tasks as none have been scheduled for this build yet.");
             }
-            List<Throwable> taskFailures = new ArrayList<>();
-            workExecutor.execute(gradle, taskFailures);
-            if (!taskFailures.isEmpty()) {
-                throw new MultipleBuildFailures(taskFailures);
-            }
-            return null;
+            return workExecutor.execute(gradle);
         });
     }
 
@@ -157,9 +149,9 @@ public class DefaultBuildLifecycleController implements BuildLifecycleController
     }
 
     @Override
-    public void finishBuild(@Nullable Throwable failure, Consumer<? super Throwable> collector) {
+    public ExecutionResult<Void> finishBuild(@Nullable Throwable failure) {
         if (state == State.Finished) {
-            return;
+            return ExecutionResult.succeeded();
         }
         // Fire the build finished events even if nothing has happened to this build, because quite a lot of internal infrastructure
         // adds listeners and expects to see a build finished event. Infrastructure should not be using the public listener types
@@ -170,14 +162,17 @@ public class DefaultBuildLifecycleController implements BuildLifecycleController
             reportableFailure = stageFailure;
         }
         BuildResult buildResult = new BuildResult(state.getDisplayName(), gradle, reportableFailure);
+        ExecutionResult<Void> finishResult;
         try {
             buildListener.buildFinished(buildResult);
             buildFinishedListener.buildFinished((GradleInternal) buildResult.getGradle(), buildResult.getFailure() != null);
+            finishResult = ExecutionResult.succeeded();
         } catch (Throwable t) {
-            collector.accept(t);
+            finishResult = ExecutionResult.failed(t);
         }
         state = State.Finished;
         stageFailure = null;
+        return finishResult;
     }
 
     /**
