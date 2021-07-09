@@ -54,6 +54,7 @@ public class CompositeBuildClassPathInitializer implements ScriptClassPathInitia
                     for (CompositeProjectComponentArtifactMetadata artifact : localArtifacts) {
                         scheduleTasks(currentBuild, artifact);
                     }
+                    includedBuildTaskGraph.populateTaskGraphs();
                 });
                 includedBuildTaskGraph.runScheduledTasks();
                 return null;

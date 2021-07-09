@@ -154,7 +154,6 @@ public class DefaultIncludedBuildTaskGraph implements IncludedBuildTaskGraph, Cl
 
     @Override
     public void runScheduledTasks() {
-        populateTaskGraphs();
         startTaskExecution();
         ExecutionResult<Void> result = awaitTaskCompletion();
         result.rethrow();
