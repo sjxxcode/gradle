@@ -23,6 +23,11 @@ import org.gradle.internal.build.ExecutionResult;
 import org.gradle.internal.concurrent.CompositeStoppable;
 import org.gradle.internal.concurrent.ExecutorFactory;
 import org.gradle.internal.concurrent.ManagedExecutor;
+import org.gradle.internal.operations.BuildOperationContext;
+import org.gradle.internal.operations.BuildOperationDescriptor;
+import org.gradle.internal.operations.BuildOperationExecutor;
+import org.gradle.internal.operations.RunnableBuildOperation;
+import org.gradle.internal.taskgraph.CalculateTreeTaskGraphBuildOperationType;
 import org.gradle.internal.work.WorkerLeaseService;
 
 import java.io.Closeable;
@@ -35,6 +40,7 @@ public class DefaultIncludedBuildTaskGraph implements IncludedBuildTaskGraph, Cl
         NotCreated, NotPrepared, QueuingTasks, Populated, ReadyToRun, Running, Finished
     }
 
+    private final BuildOperationExecutor buildOperationExecutor;
     private final BuildStateRegistry buildRegistry;
     private final WorkerLeaseService workerLeaseService;
     private final ProjectStateRegistry projectStateRegistry;
@@ -43,7 +49,12 @@ public class DefaultIncludedBuildTaskGraph implements IncludedBuildTaskGraph, Cl
     private State state = State.NotCreated;
     private IncludedBuildControllers includedBuilds;
 
-    public DefaultIncludedBuildTaskGraph(ExecutorFactory executorFactory, BuildStateRegistry buildRegistry, ProjectStateRegistry projectStateRegistry, WorkerLeaseService workerLeaseService) {
+    public DefaultIncludedBuildTaskGraph(ExecutorFactory executorFactory,
+                                         BuildOperationExecutor buildOperationExecutor,
+                                         BuildStateRegistry buildRegistry,
+                                         ProjectStateRegistry projectStateRegistry,
+                                         WorkerLeaseService workerLeaseService) {
+        this.buildOperationExecutor = buildOperationExecutor;
         this.buildRegistry = buildRegistry;
         this.projectStateRegistry = projectStateRegistry;
         this.executorService = executorFactory.create("included builds");
@@ -95,7 +106,21 @@ public class DefaultIncludedBuildTaskGraph implements IncludedBuildTaskGraph, Cl
         withState(() -> {
             expectInState(State.NotPrepared);
             state = State.QueuingTasks;
-            action.run();
+            buildOperationExecutor.run(new RunnableBuildOperation() {
+                @Override
+                public void run(BuildOperationContext context) {
+                    action.run();
+                    context.setResult(new CalculateTreeTaskGraphBuildOperationType.Result() {
+                    });
+                }
+
+                @Override
+                public BuildOperationDescriptor.Builder description() {
+                    return BuildOperationDescriptor.displayName("Calculate build tree task graph")
+                        .details(new CalculateTreeTaskGraphBuildOperationType.Details() {
+                        });
+                }
+            });
             expectInState(State.Populated);
             state = State.ReadyToRun;
             return null;
