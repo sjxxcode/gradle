@@ -25,8 +25,15 @@ class ExecutionResultTest extends Specification {
 
         expect:
         result.value == 12
+        result.valueOrRethrow == 12
         result.failures.empty
         result.rethrow()
+
+        when:
+        result.failure
+
+        then:
+        thrown(IllegalArgumentException)
 
         when:
         result.asFailure()
@@ -40,6 +47,7 @@ class ExecutionResultTest extends Specification {
 
         expect:
         result.value == null
+        result.valueOrRethrow == null
         result.failures.empty
         result.rethrow()
     }
@@ -50,13 +58,21 @@ class ExecutionResultTest extends Specification {
 
         expect:
         result.failures == [failure]
+        result.failure == failure
+
+        when:
+        result.valueOrRethrow
+
+        then:
+        def e = thrown(RuntimeException)
+        e == failure
 
         when:
         result.rethrow()
 
         then:
-        def e = thrown(MultipleBuildFailures)
-        e.causes == [failure]
+        def e2 = thrown(RuntimeException)
+        e2 == failure
 
         when:
         result.value
@@ -72,13 +88,22 @@ class ExecutionResultTest extends Specification {
 
         expect:
         result.failures == [failure1, failure2]
+        result.failure instanceof MultipleBuildFailures
+        result.failure.causes == [failure1, failure2]
+
+        when:
+        result.valueOrRethrow
+
+        then:
+        def e = thrown(MultipleBuildFailures)
+        e.causes == [failure1, failure2]
 
         when:
         result.rethrow()
 
         then:
-        def e = thrown(MultipleBuildFailures)
-        e.causes == [failure1, failure2]
+        def e2 = thrown(MultipleBuildFailures)
+        e2.causes == [failure1, failure2]
 
         when:
         result.value
@@ -92,6 +117,7 @@ class ExecutionResultTest extends Specification {
 
         expect:
         result.value == null
+        result.valueOrRethrow == null
         result.failures.empty
         result.rethrow()
     }
@@ -111,12 +137,15 @@ class ExecutionResultTest extends Specification {
 
         def result2 = successful.withFailures(failed)
         result2.failures == [failure1]
+        result2.failure == failure1
 
         def result3 = failed.withFailures(otherFailed)
         result3.failures == [failure1, failure2]
+        result3.failure instanceof MultipleBuildFailures
 
         def result4 = failed.withFailures(otherSuccessful)
         result4.failures == [failure1]
+        result4.failure == failure1
     }
 
 }

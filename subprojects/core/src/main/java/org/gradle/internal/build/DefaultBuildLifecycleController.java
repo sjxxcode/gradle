@@ -55,7 +55,7 @@ public class DefaultBuildLifecycleController implements BuildLifecycleController
     private final BuildModelController modelController;
     private State state = State.Created;
     @Nullable
-    private RuntimeException stageFailure;
+    private ExecutionResult<?> stageFailures;
 
     public DefaultBuildLifecycleController(
         GradleInternal gradle,
@@ -89,17 +89,17 @@ public class DefaultBuildLifecycleController implements BuildLifecycleController
 
     @Override
     public SettingsInternal getLoadedSettings() {
-        return withModel(modelController::getLoadedSettings);
+        return withModelOrThrow(modelController::getLoadedSettings);
     }
 
     @Override
     public GradleInternal getConfiguredBuild() {
-        return withModel(modelController::getConfiguredModel);
+        return withModelOrThrow(modelController::getConfiguredModel);
     }
 
     @Override
     public void scheduleRequestedTasks() {
-        withModel(() -> {
+        withModelOrThrow(() -> {
             state = State.TaskGraph;
             modelController.prepareToScheduleTasks();
             workPreparer.populateWorkGraph(gradle, taskGraph -> modelController.scheduleRequestedTasks());
@@ -109,7 +109,7 @@ public class DefaultBuildLifecycleController implements BuildLifecycleController
 
     @Override
     public void populateWorkGraph(Consumer<? super TaskExecutionGraphInternal> action) {
-        withModel(() -> {
+        withModelOrThrow(() -> {
             state = State.TaskGraph;
             modelController.prepareToScheduleTasks();
             workPreparer.populateWorkGraph(gradle, action);
@@ -127,25 +127,32 @@ public class DefaultBuildLifecycleController implements BuildLifecycleController
         });
     }
 
-    private <T> T withModel(Supplier<T> action) {
-        if (stageFailure != null) {
-            throw new IllegalStateException("Cannot do further work as this build has failed.", stageFailure);
+    private <T> T withModelOrThrow(Supplier<T> action) {
+        return withModel(() -> {
+            try {
+                T result = action.get();
+                return ExecutionResult.succeeded(result);
+            } catch (Throwable t) {
+                return ExecutionResult.failed(t);
+            }
+        }).getValueOrRethrow();
+    }
+
+    private <T> ExecutionResult<T> withModel(Supplier<ExecutionResult<T>> action) {
+        if (stageFailures != null) {
+            throw new IllegalStateException("Cannot do further work as this build has failed.", stageFailures.getFailure());
         }
         if (state == State.Finished) {
             throw new IllegalStateException("Cannot do further work as this build has finished.");
         }
-        try {
-            try {
-                return action.get();
-            } finally {
-                if (state == State.Created) {
-                    state = State.Configure;
-                }
-            }
-        } catch (Throwable t) {
-            stageFailure = exceptionAnalyser.transform(t);
-            throw stageFailure;
+        ExecutionResult<T> result = action.get();
+        if (state == State.Created) {
+            state = State.Configure;
         }
+        if (!result.getFailures().isEmpty()) {
+            stageFailures = result;
+        }
+        return result;
     }
 
     @Override
@@ -158,8 +165,8 @@ public class DefaultBuildLifecycleController implements BuildLifecycleController
         // In addition, they almost all should be using a build tree scoped event instead of a build scoped event
 
         Throwable reportableFailure = failure;
-        if (reportableFailure == null && stageFailure != null) {
-            reportableFailure = stageFailure;
+        if (reportableFailure == null && stageFailures != null) {
+            reportableFailure = exceptionAnalyser.transform(stageFailures.getFailures());
         }
         BuildResult buildResult = new BuildResult(state.getDisplayName(), gradle, reportableFailure);
         ExecutionResult<Void> finishResult;
@@ -171,7 +178,7 @@ public class DefaultBuildLifecycleController implements BuildLifecycleController
             finishResult = ExecutionResult.failed(t);
         }
         state = State.Finished;
-        stageFailure = null;
+        stageFailures = null;
         return finishResult;
     }
 

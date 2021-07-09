@@ -42,14 +42,24 @@ public abstract class ExecutionResult<T> {
     public abstract List<Throwable> getFailures();
 
     /**
-     * Returns a copy of this result, adding any failures from the given result object.
+     * Returns a single exception object that contains all failures in this result, if available.
      */
-    public abstract ExecutionResult<T> withFailures(ExecutionResult<Void> otherResult);
+    public abstract RuntimeException getFailure();
+
+    /**
+     * Returns the value or rethrows the failures of this result.
+     */
+    public abstract T getValueOrRethrow();
 
     /**
      * Rethrows the failures in this result, if any, otherwise does nothing.
      */
     public abstract void rethrow();
+
+    /**
+     * Returns a copy of this result, adding any failures from the given result object.
+     */
+    public abstract ExecutionResult<T> withFailures(ExecutionResult<Void> otherResult);
 
     /**
      * Casts a failed result.
@@ -96,12 +106,22 @@ public abstract class ExecutionResult<T> {
         }
 
         @Override
+        public T getValueOrRethrow() {
+            return getValue();
+        }
+
+        @Override
         public void rethrow() {
         }
 
         @Override
+        public RuntimeException getFailure() {
+            throw new IllegalArgumentException("Cannot get the failure of a successful result.");
+        }
+
+        @Override
         public <S> ExecutionResult<S> asFailure() {
-            throw new IllegalArgumentException("Cannot cast a successful result as a failed result.");
+            throw new IllegalArgumentException("Cannot cast a successful result to a failed result.");
         }
     }
 
@@ -118,13 +138,27 @@ public abstract class ExecutionResult<T> {
         }
 
         @Override
+        public T getValueOrRethrow() {
+            rethrow();
+            return null;
+        }
+
+        @Override
         public List<Throwable> getFailures() {
             return failures;
         }
 
         @Override
+        public RuntimeException getFailure() {
+            if (failures.size() == 1 && failures.get(0) instanceof RuntimeException) {
+                return (RuntimeException) failures.get(0);
+            }
+            return new MultipleBuildFailures(failures);
+        }
+
+        @Override
         public void rethrow() {
-            throw new MultipleBuildFailures(failures);
+            throw getFailure();
         }
 
         @Override
