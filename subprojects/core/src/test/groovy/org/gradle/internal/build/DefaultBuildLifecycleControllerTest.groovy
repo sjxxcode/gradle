@@ -109,13 +109,16 @@ class DefaultBuildLifecycleControllerTest extends Specification {
 
         then:
         def t = thrown RuntimeException
-        t == failure
+        t == transformedException
+
+        and:
+        1 * exceptionAnalyser.transform(failure) >> transformedException
 
         when:
         def finishResult = controller.finishBuild(null)
 
         then:
-        1 * exceptionAnalyser.transform([failure]) >> transformedException
+        1 * exceptionAnalyser.transform([transformedException]) >> transformedException
         1 * buildBroadcaster.buildFinished({ it.failure == transformedException })
         finishResult.failures.empty
     }
@@ -147,13 +150,16 @@ class DefaultBuildLifecycleControllerTest extends Specification {
 
         then:
         def t = thrown RuntimeException
-        t == failure
+        t == transformedException
+
+        and:
+        1 * exceptionAnalyser.transform(failure) >> transformedException
 
         when:
         def finishResult = controller.finishBuild(null)
 
         then:
-        1 * exceptionAnalyser.transform([failure]) >> transformedException
+        1 * exceptionAnalyser.transform([transformedException]) >> transformedException
         1 * buildBroadcaster.buildFinished({ it.failure == transformedException })
         finishResult.failures.empty
     }
@@ -185,13 +191,16 @@ class DefaultBuildLifecycleControllerTest extends Specification {
 
         then:
         def t = thrown RuntimeException
-        t == failure
+        t == transformedException
+
+        and:
+        1 * exceptionAnalyser.transform(failure) >> transformedException
 
         when:
         def finishResult = controller.finishBuild(null)
 
         then:
-        1 * exceptionAnalyser.transform([failure]) >> transformedException
+        1 * exceptionAnalyser.transform([transformedException]) >> transformedException
         1 * buildBroadcaster.buildFinished({ it.failure == transformedException && it.action == "Build" })
         finishResult.failures.empty
     }

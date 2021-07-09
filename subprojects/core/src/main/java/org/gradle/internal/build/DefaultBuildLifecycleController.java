@@ -133,7 +133,7 @@ public class DefaultBuildLifecycleController implements BuildLifecycleController
                 T result = action.get();
                 return ExecutionResult.succeeded(result);
             } catch (Throwable t) {
-                return ExecutionResult.failed(t);
+                return ExecutionResult.failed(exceptionAnalyser.transform(t));
             }
         }).getValueOrRethrow();
     }
