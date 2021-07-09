@@ -27,7 +27,6 @@ import org.gradle.internal.work.WorkerLeaseService;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 
