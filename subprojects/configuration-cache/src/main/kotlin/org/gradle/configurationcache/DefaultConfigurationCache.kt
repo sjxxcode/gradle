@@ -71,7 +71,8 @@ class DefaultConfigurationCache internal constructor(
         fun <T> factory(serviceType: Class<T>): Factory<T>
     }
 
-    override val canLoad by lazy { canLoad() }
+    private
+    val canLoad by lazy { canLoad() }
 
     private
     var rootBuild: Host? = null
@@ -108,11 +109,17 @@ class DefaultConfigurationCache internal constructor(
         rootBuild = host
     }
 
-    override fun loadOrScheduledRequestedTasks(scheduler: () -> Unit) {
+    override fun loadOrPrepareToScheduleTasks(preparer: () -> Unit) {
+        if (!canLoad) {
+            prepareForConfiguration()
+            preparer()
+        }
+    }
+
+    override fun loadOrScheduleRequestedTasks(scheduler: () -> Unit) {
         if (canLoad) {
             loadWorkGraph()
         } else {
-            prepareForConfiguration()
             scheduler()
             saveWorkGraph()
         }
