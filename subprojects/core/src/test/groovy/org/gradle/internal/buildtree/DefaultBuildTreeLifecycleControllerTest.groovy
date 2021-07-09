@@ -51,6 +51,7 @@ class DefaultBuildTreeLifecycleControllerTest extends Specification {
         1 * taskGraph.prepareTaskGraph(_) >> { Runnable runnable -> runnable.run() }
 
         and:
+        1 * workPreparer.prepareToScheduleTasks()
         1 * workPreparer.scheduleRequestedTasks()
         1 * workExecutor.execute() >> ExecutionResult.succeeded()
 
@@ -73,6 +74,7 @@ class DefaultBuildTreeLifecycleControllerTest extends Specification {
         1 * taskGraph.prepareTaskGraph(_) >> { Runnable runnable -> runnable.run() }
 
         and:
+        1 * workPreparer.prepareToScheduleTasks()
         1 * workPreparer.scheduleRequestedTasks() >> { throw failure }
 
         and:
@@ -95,6 +97,7 @@ class DefaultBuildTreeLifecycleControllerTest extends Specification {
         1 * taskGraph.prepareTaskGraph(_) >> { Runnable runnable -> runnable.run() }
 
         and:
+        1 * workPreparer.prepareToScheduleTasks()
         1 * workPreparer.scheduleRequestedTasks()
         1 * workExecutor.execute() >> ExecutionResult.failed(failure)
 
@@ -115,6 +118,7 @@ class DefaultBuildTreeLifecycleControllerTest extends Specification {
         and:
         1 * taskGraph.withNewTaskGraph(_) >> { Supplier supplier -> supplier.get() }
         1 * taskGraph.prepareTaskGraph(_) >> { Runnable runnable -> runnable.run() }
+        1 * workPreparer.prepareToScheduleTasks()
         1 * workPreparer.scheduleRequestedTasks()
         1 * workExecutor.execute() >> ExecutionResult.succeeded()
 
@@ -139,6 +143,7 @@ class DefaultBuildTreeLifecycleControllerTest extends Specification {
         and:
         1 * taskGraph.withNewTaskGraph(_) >> { Supplier supplier -> supplier.get() }
         1 * taskGraph.prepareTaskGraph(_) >> { Runnable runnable -> runnable.run() }
+        1 * workPreparer.prepareToScheduleTasks()
         1 * workPreparer.scheduleRequestedTasks()
         1 * workExecutor.execute() >> ExecutionResult.failed(failure)
         0 * action._

@@ -71,8 +71,7 @@ class DefaultConfigurationCache internal constructor(
         fun <T> factory(serviceType: Class<T>): Factory<T>
     }
 
-    private
-    val canLoad by lazy { canLoad() }
+    override val canLoad by lazy { canLoad() }
 
     private
     var rootBuild: Host? = null
